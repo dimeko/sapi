@@ -1,0 +1,13 @@
+FROM golang:1.18.2
+
+RUN apt-get update
+
+WORKDIR /testdir
+
+COPY . .
+
+RUN go mod download \ 
+&& go get github.com/dimeko/sapi/api \
+&& go get github.com/dimeko/sapi/store 
+
+ENTRYPOINT ["go", "test", "-v", "./..."]
