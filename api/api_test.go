@@ -2,19 +2,24 @@ package api
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/dimeko/sapi/app"
 	"github.com/dimeko/sapi/models"
+	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/require"
 )
 
 var api *Api
+var testDbClient *sql.DB
 
 type ErrorResponse struct {
 	Result  string `json:"result"`
@@ -36,8 +41,36 @@ type MultipleUserSuccessReponse struct {
 	Body   []models.User `json:"body"`
 }
 
+func env() map[string]string {
+	err := godotenv.Load(filepath.Join("./", ".env"))
+	if err != nil {
+		panic("Cannot find .env file")
+	}
+	return map[string]string{
+		"username": os.Getenv("POSTGRES_USER"),
+		"host":     os.Getenv("POSTGRES_HOST"),
+		"password": os.Getenv("POSTGRES_PASSWORD"),
+		"db_name":  os.Getenv("POSTGRES_DB"),
+		"port":     os.Getenv("POSTGRES_PORT"),
+	}
+}
+
 func TestMain(m *testing.M) {
 	os.Chdir("../")
+	host := env()["host"]
+	port := env()["port"]
+	user := env()["username"]
+	password := env()["password"]
+	dbname := env()["db_name"]
+
+	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+
+	var err error
+	testDbClient, err = sql.Open("postgres", psqlInfo)
+
+	if err != nil {
+		panic(err)
+	}
 	app := app.New()
 	api = New(app)
 	tst := m.Run()
@@ -46,7 +79,8 @@ func TestMain(m *testing.M) {
 }
 
 func tearDownDatabase() {
-	api.App.Store.Rdbms.Db.Exec("DELETE FROM users")
+
+	testDbClient.Exec("DELETE FROM users")
 }
 
 func TestCreate(t *testing.T) {

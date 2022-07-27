@@ -14,7 +14,7 @@ var log = logrus.New()
 
 type Api struct {
 	Router *mux.Router
-	App    *app.App
+	App    models.Actions
 }
 
 func New(app *app.App) *Api {

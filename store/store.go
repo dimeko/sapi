@@ -11,17 +11,9 @@ import (
 
 var log = logrus.New()
 
-type StoreActions interface {
-	List(limit string, offset string) ([]*models.User, error)
-	Get(id string) (*models.User, error)
-	Create(payload models.UserPayload) (*models.User, error)
-	Update(id string, payload models.UserPayload) (*models.User, error)
-	Delete(id string) error
-}
-
 type Store struct {
 	Cache *cache.Cache
-	Rdbms *rdbms.RDBMS
+	Rdbms models.Actions
 }
 
 func New() *Store {

@@ -6,7 +6,7 @@ import (
 )
 
 type App struct {
-	Store *store.Store
+	Store models.Actions
 }
 
 func New() *App {
