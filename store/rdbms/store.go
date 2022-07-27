@@ -2,107 +2,127 @@ package rdbms
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
-	"strings"
+	"path/filepath"
 
-	"github.com/dimeko/sapi/app"
-	"github.com/dimeko/sapi/store"
+	"github.com/dimeko/sapi/models"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
+	"github.com/sirupsen/logrus"
 )
 
-type RDBS struct {
-	store.Store
-	db *sql.DB
+var log = logrus.New()
+
+type RDBMS struct {
+	Db *sql.DB
 }
 
 func env() map[string]string {
+	err := godotenv.Load(filepath.Join("./", ".env"))
+	if err != nil {
+		panic("Cannot find .env file")
+	}
 	return map[string]string{
 		"username": os.Getenv("POSTGRES_USER"),
+		"host":     os.Getenv("POSTGRES_HOST"),
 		"password": os.Getenv("POSTGRES_PASSWORD"),
 		"db_name":  os.Getenv("POSTGRES_DB"),
 		"port":     os.Getenv("POSTGRES_PORT"),
 	}
 }
 
-func New() *RDBS {
-	dsn := strings.Join([]string{"postgres://",
-		env()["username"], ":",
-		env()["password"], "@localhost:",
-		env()["port"], "/", env()["db_name"], "/sslmode=disable"}, "")
+func New() *RDBMS {
+	host := env()["host"]
+	port := env()["port"]
+	user := env()["username"]
+	password := env()["password"]
+	dbname := env()["db_name"]
 
-	db, err := sql.Open("postgres", dsn)
+	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+
+	db, err := sql.Open("postgres", psqlInfo)
+
 	if err != nil {
-		panic("Could not initialize database")
+		panic(err)
 	}
 
-	store := &RDBS{
-		db: db,
+	rdbms := &RDBMS{
+		Db: db,
 	}
 
-	return store
+	return rdbms
 }
 
-func (s *RDBS) Create(payload app.CreatePayload) (string, error) {
-	var id string
-	err := s.db.QueryRow("INSERT INTO users(username, firstname, lastname) VALUES($1, $2, $3)",
+func (s *RDBMS) Create(payload models.UserPayload) (*models.User, error) {
+	id := 0
+	err := s.Db.QueryRow(`INSERT INTO users (username, firstname, lastname) VALUES ($1, $2, $3) RETURNING id`,
 		payload.Username, payload.Firstname, payload.Lastname).Scan(&id)
 
 	if err != nil {
-		return id, err
+		log.Error(err)
+		return nil, err
 	}
 
-	return id, nil
+	user := &models.User{}
+	row := s.Db.QueryRow("SELECT id, username, firstname, lastname FROM users WHERE id=$1", fmt.Sprint(id))
+	if err := row.Scan(&user.Id, &user.Username, &user.Firstname, &user.Lastname); err != nil { // scan will release the connection
+		return nil, err
+	}
+
+	return user, nil
 
 }
 
-func (s *RDBS) Update(id string, payload app.UpdatePayload) (store.User, error) {
-	var user store.User
-	err := s.db.QueryRow("UPDATE users SET username=$1, firstname=$2, lastname=$3 WHERE id=$4",
-		payload.Username, payload.Firstname, payload.Lastname, id).Scan(&user)
+func (s *RDBMS) Update(id string, payload models.UserPayload) (*models.User, error) {
+	updatedId := 0
+	err := s.Db.QueryRow("UPDATE users SET username=$1, firstname=$2, lastname=$3 WHERE id=$4 RETURNING id",
+		payload.Username, payload.Firstname, payload.Lastname, id).Scan(&updatedId)
 	if err != nil {
-		return store.User{
-			Id:        "",
-			Username:  "",
-			Firstname: "",
-			Lastname:  "",
-		}, err
+		log.Error(err)
+		return nil, err
 	}
+	user := &models.User{}
+	row := s.Db.QueryRow("SELECT id, username, firstname, lastname FROM users WHERE id=$1", updatedId)
+	if err := row.Scan(&user.Id, &user.Username, &user.Firstname, &user.Lastname); err != nil { // scan will release the connection
+		return nil, err
+	}
+
 	return user, err
 }
 
-func (s *RDBS) Get(id string) (store.User, error) {
-	var user store.User
-	err := s.db.QueryRow("SELECT * FROM users WHERE id=$1", id).Scan(&user)
-	if err != nil {
-		return store.User{
-			Id:        "",
-			Username:  "",
-			Firstname: "",
-			Lastname:  "",
-		}, err
+func (s *RDBMS) Get(id string) (*models.User, error) {
+	user := &models.User{}
+	row := s.Db.QueryRow("SELECT id, username, firstname, lastname FROM users WHERE id=$1", id)
+
+	if err := row.Scan(&user.Id, &user.Username, &user.Firstname, &user.Lastname); err != nil { // scan will release the connection
+		return nil, err
 	}
-	return user, err
+
+	return user, nil
 }
 
-func (s *RDBS) List(limit string, offset string) ([]store.User, error) {
-	rows, err := s.db.Query("SELECT * FROM users LIMIT $1 OFFSET $2", limit, offset)
+func (s *RDBMS) List(limit string, offset string) ([]*models.User, error) {
+	rows, err := s.Db.Query("SELECT id, username, firstname, lastname FROM users LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
+		log.Error(err)
 		return nil, err
 	}
 	defer rows.Close()
 
-	users := []store.User{}
+	users := []*models.User{}
 	for rows.Next() {
-		var u store.User
+		var u models.User
 		if err := rows.Scan(&u.Id, &u.Username, &u.Firstname, &u.Lastname); err != nil {
 			return nil, err
 		}
-		users = append(users, u)
+		users = append(users, &u)
 	}
 	return users, nil
 }
 
-func (s *RDBS) Delete(id string) error {
-	_, err := s.db.Exec("DELETE FROM users WHERE id=$1", id)
+func (s *RDBMS) Delete(id string) error {
+	_, err := s.Db.Exec("DELETE FROM users WHERE id=$1", id)
 	if err != nil {
 		return err
 	}

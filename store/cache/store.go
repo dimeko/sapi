@@ -2,48 +2,51 @@ package cache
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"hash/fnv"
-	"io/ioutil"
+	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/bradfitz/gomemcache/memcache"
-	"github.com/dimeko/sapi/app"
-	"github.com/dimeko/sapi/store"
+	"github.com/joho/godotenv"
 )
 
 type Cache struct {
-	store.Store
 	mc *memcache.Client
 }
 
-// func env() map[string]string {
-// 	return map[string]string{
-// 		"username": os.Getenv("POSTGRES_USER"),
-// 		"password": os.Getenv("POSTGRES_PASSWORD"),
-// 		"db_name":  os.Getenv("POSTGRES_DB"),
-// 		"port":     os.Getenv("POSTGRES_PORT"),
-// 	}
-// }
+func env() map[string]string {
+	err := godotenv.Load(filepath.Join("./", ".env"))
+	if err != nil {
+		panic("Cannot find .env file")
+	}
+	return map[string]string{
+		"host": os.Getenv("MEMCACHED_HOST"),
+		"port": os.Getenv("MEMCACHED_PORT"),
+	}
+}
 
 func hash(s string) string {
 	h := fnv.New64a()
 	h.Write([]byte(s))
-	return string(h.Sum64())
+	return fmt.Sprint(h.Sum64())
 }
 
-func New(childStore store.Store) *Cache {
-	mc := memcache.New("10.0.0.1:11211", "10.0.0.2:11211", "10.0.0.3:11212")
+func New() *Cache {
+	connectionString := env()["host"] + ":" + env()["port"]
+	log.Println("Connecting to cache:", connectionString)
+	mc := memcache.New(connectionString)
 
 	cache := &Cache{
-		Store: childStore,
-		mc:    mc,
+		mc: mc,
 	}
 
 	return cache
 }
 
-func (c *Cache) Create(id string, payload app.CreatePayload) (string, error) {
-	cacheKey := hash(id + payload.Username)
+func (c *Cache) Set(key string, payload interface{}) (string, error) {
+	cacheKey := hash(key)
 	cacheValue, err := json.Marshal(payload)
 
 	if err != nil {
@@ -54,43 +57,21 @@ func (c *Cache) Create(id string, payload app.CreatePayload) (string, error) {
 	return cacheKey, nil
 }
 
-func (c *Cache) Update(id string, payload app.UpdatePayload) (string, error) {
-	cacheKey := hash(id + payload.Username)
-	cacheValue, err := json.Marshal(payload)
-
+func (c *Cache) Get(key string) (*memcache.Item, error) {
+	cacheKey := hash(key)
+	item, err := c.mc.Get(cacheKey)
 	if err != nil {
-		return "", err
-	}
-	c.mc.Set(&memcache.Item{Key: cacheKey, Value: cacheValue})
-
-	return cacheKey, nil
-}
-
-func (c *Cache) Get(id string) (WalletDetails, error) {
-	if _, ok := s.Wallets[id]; !ok {
-		return WalletDetails{
-			Id:      "",
-			Name:    "",
-			Balance: 0,
-		}, errors.New("notFound")
+		return nil, err
 	}
 
-	return s.Wallets[id].Details, nil
-}
-func (c *Cache) List() ([]WalletDetails, error) {
-	var wlts []WalletDetails
-
-	for _, w := range s.Wallets {
-		wlts = append(wlts, w.Details)
-	}
-	return wlts, nil
+	return item, nil
 }
 
-func writeToFile(fileName string, newContent WalletDetails) error {
-	newContentNormalized, _ := json.MarshalIndent(newContent, "", " ")
-	err := ioutil.WriteFile(fileName, newContentNormalized, 0644)
+func (c *Cache) Remove(key string) error {
+	cacheKey := hash(key)
+	err := c.mc.Delete(cacheKey)
 	if err != nil {
-		return errors.New("databaseError")
+		return err
 	}
 	return nil
 }

@@ -6,15 +6,15 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/dimeko/sapi/api"
 	"github.com/dimeko/sapi/app"
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
-
-const port = "6028"
 
 var srvCmd = &cobra.Command{
 	Use:   "server",
@@ -31,10 +31,16 @@ func start(command *cobra.Command, args []string) {
 }
 
 func StartServer() {
+	err := godotenv.Load(filepath.Join("./", ".env"))
+	if err != nil {
+		panic("Cannot find .env file")
+	}
+
+	port := os.Getenv("APP_PORT")
 	app := app.New()
 	api := api.New(app)
 	httpServer := &http.Server{
-		Handler:      api,
+		Handler:      api.Router,
 		Addr:         ":" + port,
 		WriteTimeout: 15 * time.Second,
 	}
@@ -54,4 +60,5 @@ func StartServer() {
 	defer cancel()
 
 	log.Fatal(httpServer.Shutdown(ctx))
+	os.Exit(0)
 }

@@ -1,24 +1,25 @@
-docker-run:
+include .env
+
+run:
 	docker-compose up -d app postgres memcached migrate
+	docker-compose up -d postgres && \
+	docker-compose up -d migrate  && \
+	docker-compose up -d memcached  && \
+	docker-compose up app
 
-docker-stop:
+d-stop:
 	docker-compose stop
 
-docker-rm:
+d-rm:
 	docker-compose rm
 
-docker-cleanup: docker-stop docker-rm
-
-docker-test:
-	docker-compose up -d apptest postgres_test memcached migrate --rm
-	docker-compose stop
-	docker-compose rm
-	
-host-build:
-	go build main.go
-
-host-run:
-	go run main.go server
+cleanup: d-stop d-rm
 
 test:
-	go test github.com/dimoiko100/bl-assignment/store github.com/dimoiko100/bl-assignment/api
+	docker-compose up -d postgres_test && \
+	docker-compose up -d migrate_test  && \
+	docker-compose up apptest
+	docker-compose down -d postgres_test migrate_test apptest
+	
+migrate-run:
+	docker-compose run migrate || docker-compose up migrate

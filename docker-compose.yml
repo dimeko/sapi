@@ -1,61 +1,92 @@
-version: "3.9"
+version: "3"
 services:
   app:
     build: .
     image: sapi
     container_name: sapi_app
     environment:
+      PORT: "${APP_PORT}"
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${POSTGRES_DB}"
+      POSTGRES_PORT: "${POSTGRES_PORT}"
+      POSTGRES_HOST: "${POSTGRES_HOST}"
+    depends_on:
+      - postgres
+      - migrate
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+    volumes:
+      - ./:/app
+  apptest:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    image: sapi_test
+    container_name: sapi_app_test
+    depends_on:
+      - postgres_test
+      - migrate_test
+    environment:
+      PORT: "${TEST_APP_PORT}"
+      POSTGRES_USER: "${TEST_POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${TEST_POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${TEST_POSTGRES_DB}"
+      POSTGRES_PORT: "${TEST_POSTGRES_PORT}"
+      POSTGRES_HOST: "${TEST_POSTGRES_HOST}"
+    ports:
+      - "${TEST_APP_PORT}:${TEST_APP_PORT}"
+    volumes:
+      - ./:/testdir
+  postgres:
+    image: postgres:latest
+    container_name: sapi_db
+    restart: always
+    environment:
       POSTGRES_USER: "${POSTGRES_USER}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
       POSTGRES_DB: "${POSTGRES_DB}"
       POSTGRES_PORT: "${POSTGRES_PORT}"
     ports:
-      - "6028:6028"
-    volumes:
-      - .:/app
-  apptest:
-    build:
-      context: .
-      dockerfile: Dockerfile.test
-    image: sapi
-    container_name: sapi_app
+     - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    command: -p ${POSTGRES_PORT}
+  postgres_test:
+    image: postgres:latest
+    container_name: sapi_db_test
     environment:
       POSTGRES_USER: "${TEST_POSTGRES_USER}"
       POSTGRES_PASSWORD: "${TEST_POSTGRES_PASSWORD}"
       POSTGRES_DB: "${TEST_POSTGRES_DB}"
       POSTGRES_PORT: "${TEST_POSTGRES_PORT}"
     ports:
-      - "6028:6028"
-    volumes:
-      - .:/app
-  postgres:
-    image: postgres
-    container_name: sapi_db
-    environment:
-      POSTGRES_USER: "${POSTGRES_USER}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-      POSTGRES_DB: "${POSTGRES_DB}"
-    ports:
-      - "${POSTGRES_PORT}:5432"
-  postgres_test:
-    extends: postgres
-    container_name: sapi_db_test
-    environment:
-      POSTGRES_USER: "${TEST_POSTGRES_USER}"
-      POSTGRES_PASSWORD: "${TEST_POSTGRES_PASSWORD}"
-      POSTGRES_DB: "${TEST_POSTGRES_DB}"
-    ports:
-      - "${TEST_POSTGRES_PORT}:5432"
-  migrate:
+      - "${TEST_POSTGRES_PORT}:${TEST_POSTGRES_PORT}"
+    command: -p ${TEST_POSTGRES_PORT}
+  migrate_test:
     image: migrate/migrate
+    container_name: app_migrate_test
+    depends_on:
+      - postgres_test
     volumes:
         - ./db/migrations:/migrations
     command: [
       "-path", 
       "/migrations", 
       "-database", 
-      "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable", 
-      "up", "3"]
+      "postgres://${TEST_POSTGRES_USER}:${TEST_POSTGRES_PASSWORD}@${TEST_POSTGRES_HOST}:${TEST_POSTGRES_PORT}/${TEST_POSTGRES_DB}?sslmode=disable", 
+      "up", "1"]
+  migrate:
+    image: migrate/migrate
+    container_name: app_migrate
+    depends_on:
+      - postgres
+    volumes:
+        - ./db/migrations:/migrations
+    command: [
+      "-path", 
+      "/migrations", 
+      "-database", 
+      "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable", 
+      "up", "1"]
   memcached:
     container_name: memcached
     image: memcached:latest

@@ -1,17 +1,11 @@
 ## Sapi
 ### Overview
-A simple wallet repository server with the basic CRUD operations for listing, modifying wallets. Wallets are stored inside a json database that is created upon server starting with every json file name representing the wallet's id. Every wallet has an `id`, a `name` and a `balance`. The available operations are `create` (the id is generated with every creation without the need for the user to pass it as a pareameter), `add/{id}` funds to increase the wallet's balance, `remove/{id}` funds to decrease a wallets balace and finally `list` for the listing of all wallets and `get/{id}` to retreive one wallet.
+A simple server with the basic CRUD operations for listing, modifying users. Initially developed to be used as a boilerplate Go api. Future plans: add dynamic model creation, add actions on models
 
 ### Setup
 With `Docker` (recommended):
 ```
-make docker-build
-make docker-run
-```
-
-On host machine:
-```
-make host-run
+make run
 ```
 
 ### Tests
@@ -27,8 +21,9 @@ Use the below example commands for manual testing (`curl` required):
 curl --location --request POST 'http://localhost:6028/create' \
 --header 'Content-Type: application/json' \
 --data-raw '{
-    "name": "wallet_name",
-    "balance": 500
+    "username": "username1",
+    "firstname": "firstname1",
+    "lastname": "lastname1"
 }'
 ```
 
@@ -42,32 +37,30 @@ curl --location --request GET 'http://localhost:6028/list'
 curl --location --request GET 'http://localhost:6028/get/{id}'
 ```
 
-##### Add
+##### Update
 ```
-curl --location --request PUT 'http://localhost:6028/add/{id}' \
+curl --location --request PUT 'http://localhost:6028/update/{id}' \
 --header 'Content-Type: application/json' \
 --data-raw '{
-    "amount": 50
+    "username": "updated_username1",
+    "firstname": "updated_firstname1",
+    "lastname": "updated_lastname1"
 }'
 ```
 
-##### Remove
+##### Delete
 ```
-curl --location --request PUT 'http://localhost:6028/remove/{id}' \
---header 'Content-Type: application/json' \
---data-raw '{
-    "amount": 50
-}'
+curl --location --request PUT 'http://localhost:6028/delete/{id}' \
 ```
 
 ### Cleanup
 For a propper cleanup of the `Docker` container and image you can use the below command:
 ```
-make docker-cleanup
+make cleanup
 ```
 
-### To have done better
-1. Run tests inside a Docker container.
-2. In order to increase performance we could write to file, on updates, using a goroutine.
-3. Shutdown app with error code 0 and wait for every running process to finish (using wait groups).
-4. Restrict access to db so it could be modified only from the app.
+### TODO
+1. Shutdown app with error code 0 and wait for every running process to finish (using wait groups).
+2. Implement live reload with `Docker`.
+3. Improve http error responses.
+4. Improve migration commands
