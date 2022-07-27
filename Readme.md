@@ -63,4 +63,5 @@ make cleanup
 1. Shutdown app with error code 0 and wait for every running process to finish (using wait groups).
 2. Implement live reload with `Docker`.
 3. Improve http error responses.
-4. Improve migration commands
+4. Improve migration commands.
+5. Better cache management.
