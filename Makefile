@@ -1,11 +1,16 @@
 include .env
 
 run:
-	docker-compose up -d app postgres memcached migrate
 	docker-compose up -d postgres && \
 	docker-compose up -d migrate  && \
 	docker-compose up -d memcached  && \
-	docker-compose up app
+	docker-compose up app &
+
+restart:
+	docker-compose restart app
+
+stop:
+	docker-compose down
 
 d-stop:
 	docker-compose stop

@@ -73,7 +73,7 @@ services:
       "/migrations", 
       "-database", 
       "postgres://${TEST_POSTGRES_USER}:${TEST_POSTGRES_PASSWORD}@${TEST_POSTGRES_HOST}:${TEST_POSTGRES_PORT}/${TEST_POSTGRES_DB}?sslmode=disable", 
-      "up", "1"]
+      "up"]
   migrate:
     image: migrate/migrate
     container_name: app_migrate
@@ -86,7 +86,7 @@ services:
       "/migrations", 
       "-database", 
       "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable", 
-      "up", "1"]
+      "up"]
   memcached:
     container_name: memcached
     image: memcached:latest

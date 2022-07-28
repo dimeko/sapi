@@ -33,11 +33,12 @@ func env() map[string]string {
 }
 
 func New() *RDBMS {
-	host := env()["host"]
-	port := env()["port"]
-	user := env()["username"]
-	password := env()["password"]
-	dbname := env()["db_name"]
+	envVars := env()
+	host := envVars["host"]
+	port := envVars["port"]
+	user := envVars["username"]
+	password := envVars["password"]
+	dbname := envVars["db_name"]
 
 	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
 
