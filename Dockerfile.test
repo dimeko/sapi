@@ -10,4 +10,4 @@ RUN go mod download \
 && go get github.com/dimeko/sapi/api \
 && go get github.com/dimeko/sapi/store 
 
-CMD ["go", "test", "-v", "github.com/dimeko/sapi/store/rdbms", "github.com/dimeko/sapi/api"]
+CMD ["go", "test", "-v", "./..."]
